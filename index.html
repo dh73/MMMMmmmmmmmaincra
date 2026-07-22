@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#b55234">
+  <title>Canto de Barro — cargando mundo</title>
+  <style>
+    html,body{width:100%;height:100%;margin:0;background:#201515;color:#f8dfaa;font-family:system-ui,sans-serif;overflow:hidden}
+    #pack-loader{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 25%,#6d372c,#1b1111 65%);z-index:99999}
+    #pack-card{width:min(560px,84vw);padding:34px;text-align:center;border:1px solid #d28a52;background:#261817e8;box-shadow:0 30px 90px #0008}
+    #pack-card h1{font:700 clamp(2.5rem,8vw,5rem)/.9 Georgia,serif;margin:.15em 0;color:#ffd477}
+    #pack-card p{line-height:1.55;color:#e7cba6}.track{height:8px;background:#120b0b;margin:24px 0;overflow:hidden}.fill{height:100%;width:8%;background:linear-gradient(90deg,#d65b32,#ffc94c);transition:width .25s}
+    #pack-error{white-space:pre-wrap;color:#ff9e8c;font-size:.85rem}
+  </style>
+</head>
+<body>
+  <div id="pack-loader"><main id="pack-card"><small>MUNDO VOXEL AUTO-CONTENIDO</small><h1>Canto de Barro</h1><p id="pack-status">Abriendo la tierra…</p><div class="track"><div class="fill" id="pack-fill"></div></div><pre id="pack-error"></pre></main></div>
+  <script type="module">
+    const PARTS = 8;
+    const EXPECTED_SHA256 = '2cf8185682e3bfe52f00d4ebbfcc619797153a5479a1f0a1da030395d70a39d5';
+    const status = document.querySelector('#pack-status');
+    const fill = document.querySelector('#pack-fill');
+    const errorBox = document.querySelector('#pack-error');
+    const decoder = new TextDecoder();
+    const pathFor = (index) => `.payload/part-${String(index).padStart(3, '0')}`;
+    const progress = (text, percent) => { status.textContent = text; fill.style.width = `${percent}%`; };
+
+    function decodeBase64(value) {
+      const binary = atob(value.replace(/\s/g, ''));
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      return bytes;
+    }
+
+    async function sha256(bytes) {
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+      return [...digest].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function gunzip(bytes) {
+      if (!('DecompressionStream' in window)) throw new Error('Este navegador necesita DecompressionStream (Chrome 80+, Firefox 113+, Safari 16.4+).');
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+
+    function readString(bytes, start, length) {
+      return decoder.decode(bytes.subarray(start, start + length)).replace(/\0.*$/, '').trim();
+    }
+
+    function untar(bytes) {
+      const files = new Map();
+      for (let offset = 0; offset + 512 <= bytes.length;) {
+        const name = readString(bytes, offset, 100);
+        if (!name) break;
+        const prefix = readString(bytes, offset + 345, 155);
+        const path = `${prefix ? `${prefix}/` : ''}${name}`.replace(/^\.\//, '');
+        const sizeText = readString(bytes, offset + 124, 12).replace(/[^0-7]/g, '');
+        const size = Number.parseInt(sizeText || '0', 8);
+        const type = String.fromCharCode(bytes[offset + 156] || 48);
+        const body = offset + 512;
+        if (type === '0' || type === '\0') files.set(path, bytes.slice(body, body + size));
+        offset = body + Math.ceil(size / 512) * 512;
+      }
+      return files;
+    }
+
+    function moduleURL(source, replacements = {}) {
+      let rewritten = source;
+      for (const [specifier, url] of Object.entries(replacements)) rewritten = rewritten.split(`'${specifier}'`).join(`'${url}'`).split(`"${specifier}"`).join(`"${url}"`);
+      return URL.createObjectURL(new Blob([rewritten], { type: 'text/javascript' }));
+    }
+
+    async function boot() {
+      progress('Reuniendo los fragmentos del mundo…', 12);
+      const fragments = await Promise.all(Array.from({ length: PARTS }, async (_, index) => {
+        const response = await fetch(pathFor(index), { cache: 'no-store' });
+        if (!response.ok) throw new Error(`No se pudo leer ${pathFor(index)} (${response.status}).`);
+        progress(`Leyendo piedra ${index + 1} de ${PARTS}…`, 12 + ((index + 1) / PARTS) * 28);
+        return response.text();
+      }));
+
+      const compressed = decodeBase64(fragments.join(''));
+      progress('Verificando el sello del mundo…', 45);
+      const digest = await sha256(compressed);
+      if (digest !== EXPECTED_SHA256) throw new Error(`El paquete no pasó la verificación SHA-256.\nEsperado: ${EXPECTED_SHA256}\nRecibido: ${digest}`);
+
+      progress('Desplegando montañas, pueblo y cenote…', 58);
+      const files = untar(await gunzip(compressed));
+      const required = ['index.html', 'styles.css', 'src/constants.js', 'src/math.js', 'src/textures.js', 'src/audio.js', 'src/world.js', 'src/main.js'];
+      for (const file of required) if (!files.has(file)) throw new Error(`El paquete no contiene ${file}.`);
+      const text = (path) => decoder.decode(files.get(path));
+
+      progress('Encendiendo el sol y las luciérnagas…', 72);
+      const gameDocument = new DOMParser().parseFromString(text('index.html'), 'text/html');
+      gameDocument.querySelectorAll('script').forEach((node) => node.remove());
+      document.title = gameDocument.title;
+      document.body.innerHTML = gameDocument.body.innerHTML;
+      const gameStyle = document.createElement('style');
+      gameStyle.textContent = text('styles.css');
+      document.head.appendChild(gameStyle);
+
+      const constants = moduleURL(text('src/constants.js'));
+      const math = moduleURL(text('src/math.js'));
+      const audio = moduleURL(text('src/audio.js'));
+      const textures = moduleURL(text('src/textures.js'), { './math.js': math });
+      const world = moduleURL(text('src/world.js'), {
+        './constants.js': constants,
+        './math.js': math,
+        './textures.js': textures,
+      });
+      const main = moduleURL(text('src/main.js'), {
+        './constants.js': constants,
+        './audio.js': audio,
+        './math.js': math,
+        './textures.js': textures,
+        './world.js': world,
+      });
+
+      await import(main);
+    }
+
+    boot().catch((error) => {
+      console.error(error);
+      progress('El mundo no pudo abrirse.', 100);
+      errorBox.textContent = error?.stack || String(error);
+    });
+  </script>
+</body>
+</html>
