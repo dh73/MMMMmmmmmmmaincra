@@ -78,10 +78,24 @@ game.start = function start() {
 };
 
 game.resume = function resume() {
+  document.activeElement?.blur?.();
   this.keys.clear();
   this.player.velocity.set(0, 0, 0);
   document.querySelector('#pause').classList.add('hidden');
   this.soundscape.start();
+  if (this.touchMode) this.paused = false;
+  else {
+    this.paused = true;
+    requestLock(this.canvas, () => document.querySelector('#pause').classList.remove('hidden'));
+  }
+};
+
+game.closeCodex = function closeCodex() {
+  document.querySelector('#codex').classList.add('hidden');
+  document.activeElement?.blur?.();
+  this.keys.clear();
+  this.player.velocity.x = 0;
+  this.player.velocity.z = 0;
   if (this.touchMode) this.paused = false;
   else {
     this.paused = true;
