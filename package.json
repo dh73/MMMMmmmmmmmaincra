@@ -1,12 +1,12 @@
 {
   "name": "canto-de-barro",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "description": "A fully playable Mexican-inspired browser voxel sandbox.",
   "scripts": {
-    "test": "node tests/world.test.mjs && node tests/static.test.mjs",
-    "check": "node --check src/world.js && node --check src/game.js && node --check sw.js && npm test"
+    "test": "node tests/world.test.mjs && node tests/player-physics.test.mjs && node tests/static.test.mjs",
+    "check": "node --check src/world.js && node --check src/game.js && node --check src/player-physics.js && node --check src/player-controller.js && node --check sw.js && npm test"
   },
   "devDependencies": {
     "three": "0.166.1"
