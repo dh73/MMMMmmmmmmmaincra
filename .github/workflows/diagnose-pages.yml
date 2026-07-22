@@ -1,0 +1,85 @@
+name: Diagnose latest GitHub Pages failure
+
+on:
+  workflow_run:
+    workflows: ["Verify and deploy GitHub Pages"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+  pages: read
+
+concurrency:
+  group: pages-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Gate on the current main deployment
+        id: gate
+        shell: bash
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [[ "$DEPLOY_SHA" == "$(git rev-parse HEAD)" ]]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Capture Pages and Actions diagnostics
+        if: steps.gate.outputs.current == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set +e
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          headers=(-H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28")
+          curl -sS "${headers[@]}" "$api/pages" -o /tmp/pages.json
+          curl -sS "${headers[@]}" "$api/actions/runs/${RUN_ID}/jobs?per_page=100" -o /tmp/jobs.json
+          curl -sSL "${headers[@]}" "$api/actions/runs/${RUN_ID}/logs" -o /tmp/logs.zip
+          {
+            echo "# GitHub Pages failure diagnostic"
+            echo
+            echo "- Workflow run: $RUN_URL"
+            echo "- Commit: $RUN_SHA"
+            echo "- Conclusion: $RUN_CONCLUSION"
+            echo
+            echo "## Pages API"
+            echo '```json'
+            jq '{status, message, build_type, source, html_url, https_enforced, protected_domain_state, pending_domain_unverified_at}' /tmp/pages.json 2>/dev/null || cat /tmp/pages.json
+            echo '```'
+            echo
+            echo "## Jobs and failing steps"
+            jq -r '.jobs[] | "### \(.name) — \(.conclusion)\n" + ([.steps[] | select(.conclusion == "failure") | "- Step: \(.name) (\(.conclusion))"] | join("\n"))' /tmp/jobs.json 2>/dev/null || cat /tmp/jobs.json
+            echo
+            echo "## Relevant log tail"
+            echo '```text'
+            unzip -p /tmp/logs.zip 2>/dev/null | grep -Ei 'error|failed|pages|not found|permission|configure' | tail -n 120 || true
+            echo '```'
+          } > PAGES_DIAGNOSTIC.md
+
+      - name: Commit diagnostic and remove this workflow
+        if: steps.gate.outputs.current == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/diagnose-pages.yml
+          git add PAGES_DIAGNOSTIC.md
+          git commit -m "Record GitHub Pages failure diagnostic"
+          git push origin HEAD:main
