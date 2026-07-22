@@ -1,12 +1,21 @@
 # Canto de Barro
 
-**Canto de Barro** is a fully playable browser-native voxel sandbox inspired by Mexico’s landscapes, town architecture, material culture, and color. It is a real first-person building game—not a video, animation, or texture swap—and runs directly as a static GitHub Pages site.
+**Canto de Barro** is a fully playable browser-native voxel sandbox inspired by Mexico’s landscapes, town architecture, material culture, and color. It is a real first-person building game—not a video, animation, or texture swap—and is designed to run directly from the repository root as a GitHub Pages project site.
 
-## Play
+## Publish and play
 
-**GitHub Pages:** <https://dh73.github.io/MMMMmmmmmmmaincra/>
+The project-site URL is:
 
-The published site uses the readable files in `main` directly:
+**https://dh73.github.io/MMMMmmmmmmmaincra/**
+
+GitHub Pages must be enabled once in the repository settings:
+
+1. Open **Settings → Pages**.
+2. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
+3. Select branch **`main`** and folder **`/(root)`**.
+4. Save.
+
+The site then serves the readable files in `main` directly:
 
 - `index.html`
 - `styles.css`
@@ -15,7 +24,7 @@ The published site uses the readable files in `main` directly:
 - `manifest.webmanifest`
 - `sw.js`
 
-There is no archive loader, source reconstruction step, clone requirement, local server requirement, or generated runtime bundle. GitHub Pages serves the repository root and the browser imports the game modules normally.
+There is no archive loader, source reconstruction step, clone requirement, local-server requirement, compiled site branch, or generated runtime bundle. The browser imports the game modules normally from the GitHub Pages project path.
 
 ## Implemented game
 
@@ -69,7 +78,7 @@ The verification suite covers:
 - the native HTML/CSS/ES-module resource graph;
 - web-manifest structure.
 
-The GitHub Pages workflow runs these checks before deploying the repository root.
+The `Verify playable voxel world` workflow runs these checks on every `main` push and pull request. Publishing itself is GitHub’s native branch-source Pages mode, so the code being viewed in `main` is the code served by the site.
 
 A headless Chromium visual test was attempted in the development environment, but that container could not initialize a GL backend. It is deliberately not reported as a passing visual test.
 
