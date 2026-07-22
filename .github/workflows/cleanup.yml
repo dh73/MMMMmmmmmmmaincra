@@ -1,0 +1,63 @@
+name: One-time repository cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cleanup.yml
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove obsolete branches
+        shell: bash
+        run: |
+          git push origin --delete gh-pages || true
+          git push origin --delete agent/mictlan-voxel-sandbox || true
+
+      - name: Enable GitHub Actions as the Pages source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          create_status=$(curl --silent --show-error --output /tmp/pages-create.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" \
+            --data '{"build_type":"workflow"}')
+          if [[ "$create_status" != "201" && "$create_status" != "409" && "$create_status" != "422" ]]; then
+            cat /tmp/pages-create.json
+          fi
+          update_status=$(curl --silent --show-error --output /tmp/pages-update.json --write-out '%{http_code}' \
+            --request PUT \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" \
+            --data '{"build_type":"workflow"}')
+          if [[ "$update_status" != "204" ]]; then
+            cat /tmp/pages-update.json
+          fi
+          exit 0
+
+      - name: Remove this one-use workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/cleanup.yml
+          git commit -m "Remove completed repository cleanup workflow"
+          git push origin HEAD:main
