@@ -1,0 +1,46 @@
+name: Deploy playable world
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verify-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify committed game pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .payload/part-* | base64 --decode > /tmp/canto-de-barro-src.tgz
+          echo "2cf8185682e3bfe52f00d4ebbfcc619797153a5479a1f0a1da030395d70a39d5  /tmp/canto-de-barro-src.tgz" | sha256sum --check -
+          tar -tzf /tmp/canto-de-barro-src.tgz | grep -Fx './src/main.js'
+          tar -tzf /tmp/canto-de-barro-src.tgz | grep -Fx './tests/world.test.mjs'
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static game
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
