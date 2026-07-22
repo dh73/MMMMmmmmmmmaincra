@@ -1,0 +1,29 @@
+name: Verify playable voxel world
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out readable source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install verification dependency
+        run: npm install --no-package-lock --ignore-scripts
+
+      - name: Check syntax, deterministic world, meshing, persistence, and static graph
+        run: npm run check
