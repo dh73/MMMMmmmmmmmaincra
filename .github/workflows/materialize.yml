@@ -3,8 +3,9 @@ name: Materialize playable game
 on:
   push:
     branches:
-      - agent/mictlan-voxel-sandbox
+      - main
     paths:
+      - .payload/**
       - .github/workflows/materialize.yml
 
 permissions:
@@ -14,10 +15,10 @@ jobs:
   materialize:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source branch
+      - name: Check out main
         uses: actions/checkout@v4
         with:
-          ref: agent/mictlan-voxel-sandbox
+          ref: main
           fetch-depth: 0
 
       - name: Verify and restore source tree
@@ -37,4 +38,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Build Canto de Barro playable voxel world"
-          git push origin HEAD:agent/mictlan-voxel-sandbox
+          git push origin HEAD:main
