@@ -19,7 +19,7 @@ The entrypoint reads the committed game pack, verifies its exact SHA-256 (`2cf81
 To inspect or edit the normal source tree locally:
 
 ```bash
-./unpack-source.sh
+bash unpack-source.sh
 ```
 
 ## Implemented game
@@ -71,7 +71,7 @@ The source package contains the deterministic Node test suite. Before publicatio
 The complete modular source can be unpacked and checked with:
 
 ```bash
-./unpack-source.sh
+bash unpack-source.sh
 npm run check
 ```
 
