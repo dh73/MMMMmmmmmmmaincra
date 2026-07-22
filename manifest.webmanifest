@@ -1,0 +1,11 @@
+{
+  "name": "Canto de Barro",
+  "short_name": "Canto de Barro",
+  "description": "Mundo voxel mexicano jugable en el navegador.",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#191625",
+  "theme_color": "#9d3f2c",
+  "icons": []
+}
