@@ -1,0 +1,41 @@
+name: Materialize playable game
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .payload/**
+      - .github/workflows/materialize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify and restore source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .payload/part-* | base64 --decode > /tmp/canto-de-barro-src.tgz
+          echo "2cf8185682e3bfe52f00d4ebbfcc619797153a5479a1f0a1da030395d70a39d5  /tmp/canto-de-barro-src.tgz" | sha256sum --check -
+          tar -xzf /tmp/canto-de-barro-src.tgz --exclude='./.github/workflows/*'
+          rm -rf .payload
+
+      - name: Commit readable project sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Build Canto de Barro playable voxel world"
+          git push origin HEAD:main
