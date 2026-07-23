@@ -1,0 +1,52 @@
+name: Materialize Canto de Barro v6
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/materialize-v6.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: materialize-canto-v6
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.event.head_commit.message != 'Rebuild Canto de Barro into a living game'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .release/part-* | base64 --decode > /tmp/canto-v6.tgz
+          echo "1bd712822f753e7b8d00bd61a2be45ae0bae7f904e65b089933c089c61e6cbdc  /tmp/canto-v6.tgz" | sha256sum --check -
+          tar -tzf /tmp/canto-v6.tgz | grep -Fx 'src/game.js'
+          tar -tzf /tmp/canto-v6.tgz | grep -Fx 'src/world-model.js'
+
+      - name: Replace old game with readable source
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          tar -xzf /tmp/canto-v6.tgz -C .
+          npm run check
+
+      - name: Publish rebuilt game
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Rebuild Canto de Barro into a living game"
+          git push origin HEAD:main
